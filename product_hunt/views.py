@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from rest_framework import status
 from django.http import HttpResponse
 from django.utils import timezone
 from django.http import HttpResponseRedirect
@@ -8,23 +9,48 @@ from .models import Product, Website
 from .serializers import ProductSerializer, WebsiteSerializer
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .scrapers import AmazonScraper # EbayScraper, BestBuyScraper  # Add other scrapers here
+from .scrapers import AmazonScraper, EbayScraper, NeweggScraper  # Add other scrapers here
 from textblob import TextBlob
+import logging
+logger = logging.getLogger(__name__)
 
-# class ProductViewSet(viewsets.ModelViewSet):
-#     queryset = Product.objects.all()
-#     serializer_class = ProductSerializer
+def index(request):
+    return render(request,"product_hunt/index.html")
 
-# class WebsiteViewSet(viewsets.ModelViewSet):
-#     queryset = Website.objects.all()
-#     serializer_class = WebsiteSerializer
 
+
+@api_view(['GET'])
+def get_keyword_data(request):
+    keyword = request.query_params.get('keyword', None)
+    if not keyword:
+        return Response({"message": "Keyword is not given"}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        logger.info(f"Searching for products with keyword: {keyword}")
+        products = Product.objects.filter(keyword__icontains=keyword)
+        if not products.exists():
+            logger.info(f"No products found for keyword: {keyword}")
+            return Response({"message": "No products found for the given keyword"}, status=status.HTTP_404_NOT_FOUND)
+        
+        products_data = ProductSerializer(products, many=True).data
+        logger.info(f"Found {len(products_data)} products for keyword: {keyword}")
+        return Response(products_data, status=status.HTTP_200_OK)
+    
+    except Exception as e:
+        logger.error(f"An error occurred while fetching products: {str(e)}")
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @api_view(['POST'])
 def scrape_and_store(request):
     keyword = request.data.get('keyword')
     if not keyword:
-        return Response({'error': 'Keyword not provided'}, status=400)
+        return Response({'error': 'Keyword not provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Check if the keyword already exists in the database
+    existing_products = Product.objects.filter(keyword__icontains=keyword)
+    if existing_products.exists():
+        products_data = ProductSerializer(existing_products, many=True).data
+        return Response(products_data, status=status.HTTP_200_OK)
 
     urls = [
         f'https://www.amazon.com/s?k={keyword}',
@@ -32,47 +58,37 @@ def scrape_and_store(request):
         f'https://www.bestbuy.com/site/searchpage.jsp?st={keyword}'
     ]
 
-    scrapers = [AmazonScraper, EbayScraper, BestBuyScraper]
-    
+    scrapers = [AmazonScraper.AmazonScraper, EbayScraper.EbayScraper, NeweggScraper.NeweggScraper]
+
+    def run_scraper(Scraper, url):
+        try:
+            scraper = Scraper(url)
+            scraper.scrape(keyword)  # Pass the keyword to the scrape method
+        except requests.exceptions.RequestException as e:
+            logging.error(f'Network error occurred while scraping {url}: {str(e)}')
+        except Exception as e:
+            logging.error(f'An unexpected error occurred while scraping {url}: {str(e)}')
+
+    threads = []
     for url, Scraper in zip(urls, scrapers):
-        scraper = Scraper(url)
-        product_data = scraper.scrape()
-        website, _ = Website.objects.get_or_create(name=scraper.website_name, url=url)
-        for product in product_data:
-            sentiment_score = analyze_sentiment(product['reviews'])
-            Product.objects.create(
-                name=product['name'],
-                price=product['price'],
-                reviews=product['reviews'],
-                product_url=product['product_url'],
-                image_url=product['image_url'],
-                website=website,
-                sentiment_score=sentiment_score
-            )
+        thread = threading.Thread(target=run_scraper, args=(Scraper, url))
+        threads.append(thread)
+        thread.start()
 
-    return Response({'message': 'Data scraped successfully'}, status=200)
+    for thread in threads:
+        thread.join()
 
-
-
-@api_view(['POST'])
-def analyze_sentiment(request):
-    product_id = request.data.get('product_id')
-    if not product_id:
-        return Response({'error': 'Product ID not provided'}, status=400)
-
+    # Fetch the newly scraped data
     try:
-        product = Product.objects.get(id=product_id)
-        # Call your sentiment analysis API here
-        sentiment_score = get_sentiment_score(product.reviews)
-        product.sentiment_score = sentiment_score
-        product.save()
-        return Response({'sentiment_score': sentiment_score}, status=200)
-    except Product.DoesNotExist:
-        return Response({'error': 'Product not found'}, status=404)
+        new_products = Product.objects.filter(keyword__icontains=keyword)
+        if not new_products.exists():
+            return Response({'error': 'Failed to scrape data'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        products_data = ProductSerializer(new_products, many=True).data
+        return Response(products_data, status=status.HTTP_200_OK)
+    
     except Exception as e:
-        return Response({'error': str(e)}, status=500)
-def index(request):
-    return HttpResponseRedirect(reverse('product_list'))
+        return Response({'error': f'An unexpected error occurred: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def current_time(request):
     now = timezone.now()
@@ -95,22 +111,17 @@ def search_products(request):
         return JsonResponse({'error': 'Query parameter is required'}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
-        # Perform scraping here and save data
-        # For simplicity, we assume data is already in the database
-        
         products = Product.objects.filter(name__icontains=query)
         if not products.exists():
             return JsonResponse({'message': 'No products found'}, status=status.HTTP_404_NOT_FOUND)
 
         product_serializer = ProductSerializer(products, many=True)
         
-        # Perform sentiment analysis
         for product in products:
             product.sentiment_score = analyze_sentiment(product.reviews)
             product.save()
 
-        # Find the best product based on price and sentiment score
-        best_product = find_best_product(products)  # Implement this function to return the best product
+        best_product = find_best_product(products)
 
         return JsonResponse({
             'products': product_serializer.data,
@@ -132,10 +143,4 @@ def find_best_product(products):
         if score > highest_score:
             highest_score = score
             best_product = product
-    
     return best_product
-    
-
-def analyze_sentiment(review):
-    analysis = TextBlob(review)
-    return analysis.sentiment.polarity

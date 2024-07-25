@@ -19,6 +19,6 @@ from django.urls import include, path
 from product_hunt import views as product_hunt_views
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', product_hunt_views.index, name='index'),
-    path('product_hunt/', include('product_hunt.urls')),
+    # path('', product_hunt_views.index, name='index'),
+    path('', include('product_hunt.urls')),
 ]

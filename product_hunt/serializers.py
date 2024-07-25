@@ -6,6 +6,7 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = '__all__'
 
+
 class WebsiteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Website

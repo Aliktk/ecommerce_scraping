@@ -6,6 +6,8 @@ import time
 import random
 import re
 from ..models import Website, Product
+from .utils import sentiment_score, sentiment_lable
+
 class NeweggScraper:
 
     def __init__(self, base_url, max_pages=5):
@@ -133,15 +135,31 @@ class NeweggScraper:
         try:
             rating_tag = soup.select_one('.item-rating i')
             if rating_tag:
-                rating_text = rating_tag['aria-label']
-                match = re.search(r'rated (\d) out of (\d)', rating_text)
+                reviews = rating_tag['aria-label']
+                match = re.search(r'rated (\d) out of (\d)', reviews)
                 if match:
-                    rating = f"{match.group(1)}/{match.group(2)}"
-                    return rating
-            return "No rating available"
+                    reviews = f"{match.group(1)}/{match.group(2)}"
+                    return reviews
+            if reviews:
+                score = sentiment_score(reviews)
+                label = sentiment_label(score)
+                return {
+                    'reviews': reviews,
+                    'sentiment_score': score['compound'],
+                    'sentiment_label': label
+                }
+            return {
+                'reviews': None,
+                'sentiment_score': 0.0,
+                'sentiment_label': 'Neutral'
+            }
         except Exception as e:
-            logging.error(f"Error extracting product rating: {str(e)}")
-            return "No rating available"
+            logging.error(f"Error extracting product reviews: {str(e)}")
+            return {
+                'reviews': None,
+                'sentiment_score': 0.0,
+                'sentiment_label': 'Neutral'
+            }
 
     def extract_product_url(self, soup):
         """
@@ -243,35 +261,38 @@ class NeweggScraper:
         except Exception as e:
             logging.error(f"Error saving to database: {str(e)}")
             
-    def scrape(self):
-        """
-        Scrapes Ebay for product data and returns it as a pandas DataFrame.
+def scrape(self, keyword):
+    """
+    Scrapes Amazon for product data and returns it as a pandas DataFrame.
 
-        Returns:
-            pandas.DataFrame: A DataFrame containing the scraped product data.
-                The DataFrame has the following columns:
-                - name (str): The name of the product.
-                - price (str): The price of the product.
-                - reviews (str): The number of reviews for the product.
-                - product_url (str): The URL of the product page.
-                - image_url (str): The URL of the product image.
-        """
-        all_product_data = []
-        current_url = f"{self.base_url}{keyword}"
-        try:
-            for _ in range(self.max_pages):
-                logging.info(f"Scraping page: {current_url}")
-                product_data = self.scrape_page(current_url)
-                if not product_data:
-                    break
-                all_product_data.extend(product_data)
-                current_url = self.get_next_page_url(self.parse_html(self.fetch_html(current_url)))
-                if not current_url:
-                    break
-            all_product_data = self.drop_placeholder_rows(all_product_data)
-            self.save_to_database(all_product_data)
-        except Exception as e:
-            logging.error(f"Error during scraping: {str(e)}")
+    Parameters:
+        keyword (str): The search keyword.
+
+    Returns:
+        pandas.DataFrame: A DataFrame containing the scraped product data.
+            The DataFrame has the following columns:
+            - name (str): The name of the product.
+            - price (str): The price of the product.
+            - reviews (str): The number of reviews for the product.
+            - product_url (str): The URL of the product page.
+            - image_url (str): The URL of the product image.
+    """
+    all_product_data = []
+    current_url = f"{self.base_url}"
+    try:
+        for _ in range(self.max_pages):
+            logging.info(f"Scraping page: {current_url}")
+            product_data = self.scrape_page(current_url)
+            if not product_data:
+                break
+            all_product_data.extend(product_data)
+            current_url = self.get_next_page_url(self.parse_html(self.fetch_html(current_url)))
+            if not current_url:
+                break
+        all_product_data = self.drop_placeholder_rows(all_product_data)
+        self.save_to_database(all_product_data, keyword)  # Pass the keyword to save_to_database
+    except Exception as e:
+        logging.error(f"Error during scraping: {str(e)}")
     
 # if __name__ == '__main__':
 #     scraper = NeweggScraper('https://www.newegg.com/p/pl?d=iphone')
