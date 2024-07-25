@@ -5,6 +5,7 @@ import logging
 import time
 import random
 import re
+from ..models import Website, Product
 
 # from product_hunt.models import Website, Product
 
