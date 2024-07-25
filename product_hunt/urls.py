@@ -13,5 +13,6 @@ urlpatterns = [
     path('products/', views.product_list, name='product_list'),
     path('search/', views.search_products, name='search_products'),
     path('api/products/', views.ProductViewSet.as_view({'get': 'list', 'post': 'create'}), name='api_product_list'),
-    path('api/scrape/', views.scrape_and_store, name='api_scrape_and_store'),
+    path('api/scrape/', scrape_and_store, name='api_scrape_and_store'),
+    path('api/search/', search_products, name='api_search_products'),
 ]
