@@ -8,7 +8,7 @@ import time
 import random
 import re
 from ..models import Website, Product
-
+from .utils import sentiment_score, sentiment_lable
 class AmazonScraper:
 
     def __init__(self, base_url, max_pages=5):
@@ -28,6 +28,7 @@ class AmazonScraper:
         """
         self.base_url = base_url
         self.max_pages = max_pages
+        self.website_name="Amazon"
         self.USER_AGENTS = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.114 Safari/537.36',
@@ -120,14 +121,31 @@ class AmazonScraper:
             soup (BeautifulSoup): The BeautifulSoup object representing the HTML content.
 
         Returns:
-            str: The product reviews extracted from the HTML content. If the reviews cannot be found, it returns 'N/A'.
+            dict: A dictionary containing the product reviews, sentiment score, and sentiment label.
         """
         try:
             reviews = soup.select_one('.a-size-base').text if soup.select_one('.a-size-base') else None
-            return reviews
+            if reviews:
+                score = sentiment_score(reviews)
+                label = sentiment_label(score)
+                return {
+                    'reviews': reviews,
+                    'sentiment_score': score['compound'],
+                    'sentiment_label': label
+                }
+            return {
+                'reviews': None,
+                'sentiment_score': 0.0,
+                'sentiment_label': 'Neutral'
+            }
         except Exception as e:
             logging.error(f"Error extracting product reviews: {str(e)}")
-            return None
+            return {
+                'reviews': None,
+                'sentiment_score': 0.0,
+                'sentiment_label': 'Neutral'
+            }
+
 
     def extract_product_url(self, soup):
         """
@@ -195,10 +213,13 @@ class AmazonScraper:
             items = soup.select('.s-result-item')
 
             for item in items:
+                review_data = self.extract_product_reviews(item)
                 product_data.append({
                     "name": self.extract_product_name(item),
                     "price": self.extract_product_price(item),
-                    "reviews": self.extract_product_reviews(item),
+                    "reviews": review_data['reviews'],
+                    "sentiment_score": review_data['sentiment_score'],
+                    "sentiment_label": review_data['sentiment_label'],
                     "product_url": self.extract_product_url(item),
                     "image_url": self.extract_product_image_url(item),
                 })
@@ -207,8 +228,8 @@ class AmazonScraper:
         except Exception as e:
             logging.error(f"Error scraping page: {str(e)}")
             return []
-        
-    def save_to_database(self, product_data):
+            
+    def save_to_database(self, product_data, keyword):
         try:
             website, created = Website.objects.get_or_create(name='Amazon', url=self.base_url)
             for product in product_data:
@@ -216,16 +237,22 @@ class AmazonScraper:
                     name=product['name'],
                     price=product['price'],
                     reviews=product['reviews'],
-                    url=product['product_url'],
+                    product_url=product['product_url'],
                     image_url=product['image_url'],
-                    website=website
+                    website=website,
+                    sentiment_score=product['sentiment_score'],
+                    sentiment_label=product['sentiment_label'],
+                    keyword=keyword  # Save the keyword
                 )
         except Exception as e:
             logging.error(f"Error saving to database: {str(e)}")
-            
-    def scrape(self):
+
+    def scrape(self, keyword):
         """
         Scrapes Amazon for product data and returns it as a pandas DataFrame.
+
+        Parameters:
+            keyword (str): The search keyword.
 
         Returns:
             pandas.DataFrame: A DataFrame containing the scraped product data.
@@ -237,7 +264,7 @@ class AmazonScraper:
                 - image_url (str): The URL of the product image.
         """
         all_product_data = []
-        current_url = f"{self.base_url}{keyword}"
+        current_url = f"{self.base_url}"
         try:
             for _ in range(self.max_pages):
                 logging.info(f"Scraping page: {current_url}")
@@ -249,7 +276,7 @@ class AmazonScraper:
                 if not current_url:
                     break
             all_product_data = self.drop_placeholder_rows(all_product_data)
-            self.save_to_database(all_product_data)
+            self.save_to_database(all_product_data, keyword)  # Pass the keyword to save_to_database
         except Exception as e:
             logging.error(f"Error during scraping: {str(e)}")
     

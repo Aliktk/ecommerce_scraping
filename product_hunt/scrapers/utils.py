@@ -1,12 +1,31 @@
-from product_hunt.models import Website, Product
-def save_to_database(product_data):
-    website, created = Website.objects.get_or_create(name='Amazon', url=self.base_url)
-    for product in product_data:
-        Product.objects.create(
-            name=product['name'],
-            price=product['price'],
-            reviews=product['reviews'],
-            url=product['product_url'],
-            image_url=product['image_url'],
-            website=website
-        )
+from textblob import TextBlob
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+import re
+
+def sentiment_score(review):
+    """_summary_ sentences_polarity( sentences, sentence_polarity):
+
+    Args:       
+        text (_type_): The text to be analyzed. 
+
+    Returns:
+        _type_: The polarity of the text in form of percentage.
+    """
+    analyzer = SentimentIntensityAnalyzer()
+    score = analyzer.polarity_scores(text)
+    return score
+
+def sentiment_lable(score, **kwargs):
+    if score['compound'] < -0.7:
+        return "Critical"
+    elif score['compound'] < -0.5 and score['compound'] >= -0.7:
+        return "Serious"
+    elif score['compound'] < -0.3 and score['compound'] >= -0.5:
+        return "Negative"
+    elif score['compound'] == 0 and score['compound'] < 0.1:
+        return "Balance"
+    elif score['compound'] > 0.5:
+        return "Positive"
+    elif score['compound'] > 0.3 and score['compound'] <= 0.5:
+        return "Slightly Positive"
+    
