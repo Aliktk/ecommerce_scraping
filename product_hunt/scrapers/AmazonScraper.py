@@ -1,31 +1,3 @@
-# # scraping/amazon_scraper.py
-import requests
-from bs4 import BeautifulSoup
-from product_hunt.models import Website, Product
-
-# class AmazonScraper:
-#     def __init__(self, url):
-#         self.url = url
-#         self.headers = {
-#             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-#         }
-
-#     def scrape(self):
-#         response = requests.get(self.url, headers=self.headers)
-#         soup = BeautifulSoup(response.text, 'html.parser')
-#         website, created = Website.objects.get_or_create(name='Amazon', url=self.url)
-
-#         for item in soup.select('.s-main-slot .s-result-item'):
-#             name = item.select_one('h2 a span').text if item.select_one('h2 a span') else 'N/A'
-#             price = item.select_one('.a-price-whole').text if item.select_one('.a-price-whole') else 'N/A'
-#             reviews = item.select_one('.a-size-base').text if item.select_one('.a-size-base') else 'N/A'
-
-#             Product.objects.create(
-#                 name=name,
-#                 price=price,
-#                 reviews=reviews,
-#                 website=website
-#             )
 
 
 import requests
@@ -35,6 +7,7 @@ import logging
 import time
 import random
 import re
+from ..models import Website, Product
 
 class AmazonScraper:
 

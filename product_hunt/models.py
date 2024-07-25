@@ -7,16 +7,16 @@ class Website(models.Model):
     def __str__(self):
         return self.name
 
-class Product(models.Model):
-    name = models.CharField(max_length=255)
-    price = models.CharField(max_length=50)
-    reviews = models.CharField(max_length=50)
-    product_url = models.URLField()
-    image_url = models.URLField()
-    website = models.ForeignKey(Website, on_delete=models.CASCADE)
+# class Product(models.Model):
+#     name = models.CharField(max_length=255)
+#     price = models.CharField(max_length=50)
+#     reviews = models.CharField(max_length=50)
+#     product_url = models.URLField()
+#     image_url = models.URLField()
+#     website = models.ForeignKey(Website, on_delete=models.CASCADE)
 
-    def __str__(self):
-        return self.name
+#     def __str__(self):
+#         return self.name
 class Product(models.Model):
     name = models.CharField(max_length=255)
     price = models.DecimalField(max_digits=10, decimal_places=2)
@@ -24,7 +24,8 @@ class Product(models.Model):
     product_url = models.URLField()
     image_url = models.URLField()
     website = models.ForeignKey(Website, on_delete=models.CASCADE)
-    sentiment_score = models.FloatField(null=True, blank=True)
+    sentiment_score = models.FloatField( default=0.5)
+    sentiment_label = models.CharField(max_length=255,  default="Neutral")
 
     def __str__(self):
         return f"Review for {self.product.name}"

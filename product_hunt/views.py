@@ -11,13 +11,13 @@ from rest_framework.response import Response
 from .scrapers import AmazonScraper # EbayScraper, BestBuyScraper  # Add other scrapers here
 from textblob import TextBlob
 
-class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all()
-    serializer_class = ProductSerializer
+# class ProductViewSet(viewsets.ModelViewSet):
+#     queryset = Product.objects.all()
+#     serializer_class = ProductSerializer
 
-class WebsiteViewSet(viewsets.ModelViewSet):
-    queryset = Website.objects.all()
-    serializer_class = WebsiteSerializer
+# class WebsiteViewSet(viewsets.ModelViewSet):
+#     queryset = Website.objects.all()
+#     serializer_class = WebsiteSerializer
 
 
 @api_view(['POST'])

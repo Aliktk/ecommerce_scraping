@@ -5,7 +5,7 @@ import logging
 import time
 import random
 import re
-# from product_hunt.models import Website, Product
+from ..models import Website, Product
 class NeweggScraper:
 
     def __init__(self, base_url, max_pages=5):
