@@ -6,11 +6,12 @@ import time
 import random
 import re
 from ..models import Website, Product
-from .utils import sentiment_score, sentiment_lable
+from .utils import sentiment_score, sentiment_label
+from .utils import *
 
 class EbayScraper:
 
-    def __init__(self, base_url, max_pages=5):
+    def __init__(self, base_url, max_pages=2):
         """
         Initializes an instance of the EbayScraper class.
 
@@ -106,7 +107,9 @@ class EbayScraper:
         """
         try:
             price = soup.select_one('.s-item__price').text if soup.select_one('.s-item__price') else None
-            return price
+            if price:
+                price = re.sub(r'[^\d$.]+', '', price)
+                return price
         except Exception as e:
             logging.error(f"Error extracting product price: {str(e)}")
             return None
@@ -230,7 +233,7 @@ class EbayScraper:
         except Exception as e:
             logging.error(f"Error scraping page: {str(e)}")
             return []
-    def save_to_database(self, product_data):
+    def save_to_database(self, product_data,keyword):
         try:
             website, created = Website.objects.get_or_create(name='Ebay', url=self.base_url)
             for product in product_data:
@@ -238,45 +241,47 @@ class EbayScraper:
                     name=product['name'],
                     price=product['price'],
                     reviews=product['reviews'],
-                    url=product['product_url'],
+                    product_url=product['product_url'],
                     image_url=product['image_url'],
-                    website=website
+                    website=website,sentiment_score=product['sentiment_score'],
+                    sentiment_label=product['sentiment_label'],
+                    keyword=keyword
                 )
         except Exception as e:
             logging.error(f"Error saving to database: {str(e)}")
             
-def scrape(self, keyword):
-    """
-    Scrapes Amazon for product data and returns it as a pandas DataFrame.
+    def scrape(self, keyword):
+        """
+        Scrapes Amazon for product data and returns it as a pandas DataFrame.
 
-    Parameters:
-        keyword (str): The search keyword.
+        Parameters:
+            keyword (str): The search keyword.
 
-    Returns:
-        pandas.DataFrame: A DataFrame containing the scraped product data.
-            The DataFrame has the following columns:
-            - name (str): The name of the product.
-            - price (str): The price of the product.
-            - reviews (str): The number of reviews for the product.
-            - product_url (str): The URL of the product page.
-            - image_url (str): The URL of the product image.
-    """
-    all_product_data = []
-    current_url = f"{self.base_url}"
-    try:
-        for _ in range(self.max_pages):
-            logging.info(f"Scraping page: {current_url}")
-            product_data = self.scrape_page(current_url)
-            if not product_data:
-                break
-            all_product_data.extend(product_data)
-            current_url = self.get_next_page_url(self.parse_html(self.fetch_html(current_url)))
-            if not current_url:
-                break
-        all_product_data = self.drop_placeholder_rows(all_product_data)
-        self.save_to_database(all_product_data, keyword)  # Pass the keyword to save_to_database
-    except Exception as e:
-        logging.error(f"Error during scraping: {str(e)}")
+        Returns:
+            pandas.DataFrame: A DataFrame containing the scraped product data.
+                The DataFrame has the following columns:
+                - name (str): The name of the product.
+                - price (str): The price of the product.
+                - reviews (str): The number of reviews for the product.
+                - product_url (str): The URL of the product page.
+                - image_url (str): The URL of the product image.
+        """
+        all_product_data = []
+        current_url = f"{self.base_url}"
+        try:
+            for _ in range(self.max_pages):
+                logging.info(f"Scraping page: {current_url}")
+                product_data = self.scrape_page(current_url)
+                if not product_data:
+                    break
+                all_product_data.extend(product_data)
+                current_url = self.get_next_page_url(self.parse_html(self.fetch_html(current_url)))
+                if not current_url:
+                    break
+            all_product_data = self.drop_placeholder_rows(all_product_data)
+            self.save_to_database(all_product_data, keyword)  # Pass the keyword to save_to_database
+        except Exception as e:
+            logging.error(f"Error during scraping: {str(e)}")
 
 # if __name__ == "__main__":
 #     scraper = EbayScraper('https://www.ebay.com/sch/i.html?_nkw=laptop')

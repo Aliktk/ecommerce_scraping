@@ -12,10 +12,10 @@ def sentiment_score(review):
         _type_: The polarity of the text in form of percentage.
     """
     analyzer = SentimentIntensityAnalyzer()
-    score = analyzer.polarity_scores(text)
+    score = analyzer.polarity_scores(review)
     return score
 
-def sentiment_lable(score, **kwargs):
+def sentiment_label(score, **kwargs):
     if score['compound'] < -0.7:
         return "Critical"
     elif score['compound'] < -0.5 and score['compound'] >= -0.7:
