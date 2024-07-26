@@ -133,6 +133,7 @@
                         return scrapeAndStore(keyword);
                     } else {
                         console.log('Products found in database.');
+                        scrapeAndStore(keyword)
                         return products;
                     }
                 })
@@ -213,13 +214,13 @@
             var bestProductDiv = document.getElementById('best-product');
             bestProductDiv.innerHTML = `
                 <h3>Best Product</h3>
+                <img src="${bestProduct.image_url}" alt="${bestProduct.name}" class="product-image">
                 <p><strong>Name:</strong> ${bestProduct.name}</p>
-                <p><strong>Website:</strong> ${bestProduct.website.name}</p>
+                <p><strong>Website:</strong> ${bestProduct.product_url}</p>
                 <p><strong>Price:</strong> ${bestProduct.price}</p>
                 <p><strong>Reviews:</strong> ${bestProduct.reviews}</p>
                 <p><strong>Sentiment Score:</strong> ${bestProduct.sentiment_score}</p>
                 <p><strong>Sentiment Label:</strong> ${bestProduct.sentiment_label}</p>
-                <img src="${bestProduct.image_url}" alt="${bestProduct.name}" class="product-image">
             `;
             bestProductDiv.style.display = 'block';
         }

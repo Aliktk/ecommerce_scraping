@@ -8,10 +8,11 @@ import time
 import random
 import re
 from ..models import Website, Product
-from .utils import sentiment_score, sentiment_lable
+from .utils import sentiment_score, sentiment_label
+from .utils import *
 class AmazonScraper:
 
-    def __init__(self, base_url, max_pages=5):
+    def __init__(self, base_url, max_pages=2):
         """
         Initializes an instance of the AmazonScraper class.
 
@@ -108,7 +109,9 @@ class AmazonScraper:
         """
         try:
             price = soup.select_one('.a-price-whole').text if soup.select_one('.a-price-whole') else None
-            return price
+            if price:
+                price = re.sub(r'[^\d$.]+', '', price)
+                return price
         except Exception as e:
             logging.error(f"Error extracting product price: {str(e)}")
             return None

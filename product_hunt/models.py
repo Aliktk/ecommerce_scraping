@@ -9,7 +9,8 @@ class Website(models.Model):
 
 class Product(models.Model):
     name = models.CharField(max_length=255)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
+    # price = models.DecimalField(max_digits=10, decimal_places=2)
+    price = models.CharField(max_length=255, default="$ 0.0")
     reviews = models.TextField()
     product_url = models.URLField()
     image_url = models.URLField()
